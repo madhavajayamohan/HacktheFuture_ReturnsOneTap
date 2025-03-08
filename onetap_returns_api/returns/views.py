@@ -7,11 +7,7 @@ import google.generativeai as genai
 from google.cloud import vision
 from django.conf import settings
 
-
-genai.configure(api_key=settings.GEMINI_API_KEY)
-vision_client = vision.ImageAnnotatorClient()
-
-class CustomerOrderHistoryViewSet:
+class CustomerOrderHistoryViewSet(viewsets.ViewSet):
     def list(self, request, customer_id=None):
         try:
             customer = Customer.objects.get(cust_id=customer_id)
@@ -22,19 +18,8 @@ class CustomerOrderHistoryViewSet:
             return Response({"error": "Customer not found"}, status=404)
 
 class ProductEvaluationViewSet(viewsets.ViewSet):
-    def analyze_image(image_path):
-        with open(image_path, 'rb') as image_file:
-            image = vision.Image(content=image_file.read())
-
-        # Request label detection (you can choose other features like text detection or object detection)
-        response = vision_client.label_detection(image=image)
-        labels = response.label_annotations
-        
-        # Create a text summary of the labels
-        labels_text = ', '.join([label.description for label in labels])
-        return labels_text
-    
     def gemini_evaluate(self, name, category, company, date, price, image_desc, reason):
+        genai.configure(api_key=settings.GEMINI_API_KEY)
         model = genai.GenerativeModel('gemini-pro')
 
         prompt = "You are a Product Returns Specialist for an eCommerce company. Your task is to classify a product submitted for return using the following criteria: Product Name, Product Category, Company Name, Purchase Date, Price Sold At, an Analysis of an Image of the Product with Google Cloud Vision, Customer's Written Reason for Return. Based on this information, you must classify the product into one of these six conditions: \n"
@@ -54,10 +39,11 @@ class ProductEvaluationViewSet(viewsets.ViewSet):
 
         prompt += "Please find below information on the product: \n"
 
-        prompt += f"Product Name: {name} \n Product Category: {category} \n Company: {company} \n Purchase Date: {date} \n Price Sold At: {price} \n Description of Image: {image_desc} \n Customer Reason for Returning: {reason}"
+        prompt += f"Product Name: {name} \n Product Category: {category} \n Company: {company} \n Purchase Date: {date} \n Price Sold At: {price} \n Customer Reason for Returning: {reason} \n Image: Attached with list"
 
-        response = model.generate_content(prompt)
-        return response.text
+        response = model.generate_content(
+            contents=[prompt, image_desc])
+        return response
      
     def evaluate_product(self, request, order_id=None):
         serializer = ProductEvaluationSerializer(data=request.data)
@@ -78,9 +64,8 @@ class ProductEvaluationViewSet(viewsets.ViewSet):
         product_company = product.company
         purchase_date = order.purchase_date
         product_price = product.price
-        image_desc = self.analyze_image(prod_image)
 
-        answer = self.gemini_evaluate(prod_name, product_cat, product_company, purchase_date, product_price, image_desc, desc)
+        answer = self.gemini_evaluate(prod_name, product_cat, product_company, purchase_date, product_price, prod_image, desc)
 
         try:
             # This assumes the response is something like: '["Product Condition: Lightly Used", "Refund Suggestion: $50.00"]'
@@ -89,6 +74,14 @@ class ProductEvaluationViewSet(viewsets.ViewSet):
             # Handle any parsing errors
             return {"error": str(e)}
 
+        if answer_list[0] in ["Unused", "Lightly Used"]:
+            return Response("Restock", answer_list[1], answer_list[2])
+        elif answer_list[0] in ["Moderately Used", "Heavily Used"]:
+            return Response("Resale", answer_list[1], answer_list[2])
+        elif answer_list[0] == "Damaged by User":
+            return Response("Recycle", answer_list[1], answer_list[2])
+        else:
+            return Response("Recall", answer_list[1], answer_list[2])
 
 
 
