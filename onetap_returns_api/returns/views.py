@@ -103,7 +103,7 @@ class ReturnRequestViewSet(viewsets.ViewSet):
         except OrderHistory.DoesNotExist:
             return Response({"error": "Order not found"}, status=404)
         
-        return_request = ReturnRequest.objects.create(
+        ReturnRequest.objects.create(
                 prod_id=product,
                 cust_id=customer,
                 order_id=order,
