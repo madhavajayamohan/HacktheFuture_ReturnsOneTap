@@ -1,8 +1,8 @@
 from django.shortcuts import render
 from rest_framework import viewsets
 from rest_framework.response import Response
-from .models import OrderHistory, Products, Customer
-from .serializers import ProductSerializer, OrderHistorySerializer, ProductEvaluationSerializer
+from .models import OrderHistory, Products, Customer, ReturnRequest
+from .serializers import ProductSerializer, OrderHistorySerializer, ProductEvaluationSerializer, ReturnSerializer
 import google.generativeai as genai
 from google.cloud import vision
 from django.conf import settings
@@ -82,6 +82,47 @@ class ProductEvaluationViewSet(viewsets.ViewSet):
             return Response("Recycle", answer_list[1], answer_list[2])
         else:
             return Response("Recall", answer_list[1], answer_list[2])
+
+class ReturnRequestViewSet(viewsets.ViewSet):
+
+    def request_return(self, request, order_id=None):
+        serializer = ReturnSerializer(data=request.data)
+
+        if serializer.is_valid():
+            order_id = serializer.validated_data['order_id']
+            prod_image = serializer.validated_data['image']
+            desc = serializer.validated_data['text']
+            refund_value = serializer.validated_data['refund_value']
+            return_option = serializer.validated_data['return_option']
+            condition = serializer.validated_data['condition']
+        
+        try:
+            order = OrderHistory.objects.get(id=order_id)
+            product = order.prod_id
+            customer = order.cust_id
+        except OrderHistory.DoesNotExist:
+            return Response({"error": "Order not found"}, status=404)
+        
+        return_request = ReturnRequest.objects.create(
+                prod_id=product,
+                cust_id=customer,
+                order_id=order,
+                condition=condition,
+                ret_option=return_option,
+                refund_value=refund_value,
+                image=prod_image,
+                ret_reason=desc,
+                request_status=ReturnRequest.ReturnStatus.IN_PROGRESS)
+        
+        return Response(serializer.data, status=201)
+        
+        
+
+
+
+
+
+
 
 
 

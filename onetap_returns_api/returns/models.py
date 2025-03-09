@@ -57,6 +57,12 @@ class ReturnRequest(models.Model):
         COMPLETED = "completed", "Completed"
         IN_PROGRESS = "inpr", "In Progress"
         REJECTED = "rej", "Rejected"
+    
+    class ReturnOption(models.TextChoices):
+        RESTOCK = "R_ST", "Restock"
+        REUSE = "R_SL", "Resale"
+        RECYCLE = "RECYC", "Recycle"
+        RECALL = "RCALL", "Recall"
 
     ret_req_id = models.AutoField(primary_key=True)
 
@@ -78,16 +84,16 @@ class ReturnRequest(models.Model):
         related_name='return_requests'  # Plural for related_name
     )
 
+    condition = models.CharField(max_length=50, choices=ProductCondition.choices)
+
+    ret_option = models.CharField(max_length=50, choices=ReturnOption.choices)
+
+    refund_value = models.DecimalField(max_digits=10, decimal_places=2)
+
     image = models.ImageField(upload_to='product_images/')
 
     ret_reason = models.TextField()
 
     request_status = models.CharField(max_length=50, choices=ReturnStatus.choices)
-
-
-
-
-
-
 
 

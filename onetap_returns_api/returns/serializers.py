@@ -30,3 +30,11 @@ class ProductEvaluationSerializer(serializers.Serializer):
     order_id = serializers.IntegerField()
     image = serializers.ImageField()
     text = serializers.TextField()
+
+class ReturnSerializer(serializers.Serializer):
+    order_id = serializers.IntegerField()
+    image = serializers.ImageField()
+    text = serializers.TextField()
+    refund_value = serializers.DecimalField(max_digits=10, decimal_places=2)
+    condition = serializers.CharField(max_length=50, choices=ReturnRequest.ProductCondition.choices)
+    ret_option = serializers.CharField(max_length=50, choices=ReturnRequest.ReturnOption.choices)
